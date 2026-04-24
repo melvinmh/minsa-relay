@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: minsa-relay
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: MINSA_COOKIE
+        sync: false   # La pegas manualmente en el dashboard de Render
