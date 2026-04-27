@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $idpaciente = preg_replace('/[^0-9]/', '', $_GET['idpaciente'] ?? '');
@@ -26,13 +27,13 @@ $params = http_build_query([
 ]);
 $targetUrl = "https://websalud.minsa.gob.pe/hisminsa/his/his?" . $params;
 
-// ✅ Formato correcto ScraperAPI
+// ✅ ultra_premium=true → proxies residenciales que bypassean Cloudflare
 if (!empty($apiKey)) {
     $requestUrl = "http://api.scraperapi.com/"
-        . "?api_key=" . urlencode($apiKey)
-        . "&url="     . urlencode($targetUrl)
+        . "?api_key="       . urlencode($apiKey)
+        . "&url="           . urlencode($targetUrl)
         . "&keep-headers=true"
-        . "&premium=true";
+        . "&ultra_premium=true";
 } else {
     $requestUrl = $targetUrl;
 }
@@ -50,7 +51,7 @@ curl_setopt_array($ch, [
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_FOLLOWLOCATION => true,
     CURLOPT_TIMEOUT        => 60,
-    CURLOPT_CONNECTTIMEOUT => 15,
+    CURLOPT_CONNECTTIMEOUT => 20,
 ]);
 
 $response = curl_exec($ch);
