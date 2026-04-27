@@ -2,7 +2,6 @@
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 if (!isset($_GET['dni'])) {
@@ -12,7 +11,7 @@ if (!isset($_GET['dni'])) {
 
 $dni    = preg_replace('/[^0-9]/', '', $_GET['dni']);
 $cookie = getenv('MINSA_COOKIE') ?: '';
-$apiKey = getenv('SCRAPER_API_KEY') ?: '';
+$apiKey = getenv('ZENROWS_API_KEY') ?: '';  // ← nueva variable
 
 if (empty($cookie)) {
     echo json_encode(["status" => "error", "message" => "MINSA_COOKIE no configurada"]);
@@ -22,15 +21,16 @@ if (empty($cookie)) {
 $targetUrl  = "https://websalud.minsa.gob.pe/hisminsa/his/paciente";
 $postfields = "C=PACIENTE&S=INFOGETBYIDSINUPD&idtipodoc=1&numdoc=" . urlencode($dni);
 
-// ✅ ultra_premium=true → proxies residenciales que bypassean Cloudflare
+// ✅ ZenRows: POST a su endpoint pasando url destino como parámetro
 if (!empty($apiKey)) {
-    $requestUrl = "http://api.scraperapi.com/"
-        . "?api_key="       . urlencode($apiKey)
+    $requestUrl = "https://api.zenrows.com/v1/"
+        . "?apikey="        . urlencode($apiKey)
         . "&url="           . urlencode($targetUrl)
-        . "&keep-headers=true"
-        . "&ultra_premium=true";
+        . "&antibot=true"
+        . "&premium_proxy=true"
+        . "&custom_headers=true";
 } else {
-    $requestUrl = $targetUrl;
+    $requestUrl = $targetUrl; // fallback directo
 }
 
 $ch = curl_init($requestUrl);
@@ -45,11 +45,10 @@ curl_setopt_array($ch, [
         "Referer: https://websalud.minsa.gob.pe/hisminsa/",
         "X-Requested-With: XMLHttpRequest",
         "Accept: */*",
-        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     ],
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_FOLLOWLOCATION => true,
-    CURLOPT_MAXREDIRS      => 5,
     CURLOPT_TIMEOUT        => 60,
     CURLOPT_CONNECTTIMEOUT => 20,
 ]);
@@ -68,7 +67,7 @@ if ($error || $errno) {
 if ($httpCode !== 200) {
     echo json_encode([
         "status"    => "error",
-        "message"   => "HTTP $httpCode" . (!empty($apiKey) ? " vía ScraperAPI" : " directo"),
+        "message"   => "HTTP $httpCode" . (!empty($apiKey) ? " vía ZenRows" : " directo"),
         "http_code" => $httpCode,
         "snippet"   => mb_substr($response, 0, 500)
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
