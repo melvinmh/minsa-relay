@@ -2,6 +2,7 @@
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 if (!isset($_GET['dni'])) {
@@ -21,13 +22,13 @@ if (empty($cookie)) {
 $targetUrl  = "https://websalud.minsa.gob.pe/hisminsa/his/paciente";
 $postfields = "C=PACIENTE&S=INFOGETBYIDSINUPD&idtipodoc=1&numdoc=" . urlencode($dni);
 
-// ✅ Formato correcto ScraperAPI: URL destino como parámetro &url=
+// ✅ ultra_premium=true → proxies residenciales que bypassean Cloudflare
 if (!empty($apiKey)) {
     $requestUrl = "http://api.scraperapi.com/"
-        . "?api_key=" . urlencode($apiKey)
-        . "&url="     . urlencode($targetUrl)
+        . "?api_key="       . urlencode($apiKey)
+        . "&url="           . urlencode($targetUrl)
         . "&keep-headers=true"
-        . "&premium=true";
+        . "&ultra_premium=true";
 } else {
     $requestUrl = $targetUrl;
 }
@@ -50,7 +51,7 @@ curl_setopt_array($ch, [
     CURLOPT_FOLLOWLOCATION => true,
     CURLOPT_MAXREDIRS      => 5,
     CURLOPT_TIMEOUT        => 60,
-    CURLOPT_CONNECTTIMEOUT => 15,
+    CURLOPT_CONNECTTIMEOUT => 20,
 ]);
 
 $response = curl_exec($ch);
