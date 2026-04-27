@@ -21,70 +21,55 @@ if (empty($cookie)) {
 $targetUrl  = "https://websalud.minsa.gob.pe/hisminsa/his/paciente";
 $postfields = "C=PACIENTE&S=INFOGETBYIDSINUPD&idtipodoc=1&numdoc=" . urlencode($dni);
 
-// Si hay API Key de ScraperAPI, úsala; si no, conexión directa
+// ✅ Formato correcto ScraperAPI: URL destino como parámetro &url=
 if (!empty($apiKey)) {
-    $requestUrl = "http://api.scraperapi.com/";
-    $payload = json_encode([
-        "apiKey"        => $apiKey,
-        "url"           => $targetUrl,
-        "method"        => "POST",
-        "body"          => $postfields,
-        "headers"       => [
-            "Content-Type"    => "application/x-www-form-urlencoded; charset=UTF-8",
-            "Cookie"          => $cookie,
-            "Origin"          => "https://websalud.minsa.gob.pe",
-            "Referer"         => "https://websalud.minsa.gob.pe/hisminsa/",
-            "X-Requested-With"=> "XMLHttpRequest",
-            "User-Agent"      => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        ]
-    ]);
-    $ch = curl_init($requestUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => ["Content-Type: application/json"],
-        CURLOPT_TIMEOUT        => 60,
-        CURLOPT_CONNECTTIMEOUT => 15,
-        CURLOPT_SSL_VERIFYPEER => false,
-    ]);
+    $requestUrl = "http://api.scraperapi.com/"
+        . "?api_key=" . urlencode($apiKey)
+        . "&url="     . urlencode($targetUrl)
+        . "&keep-headers=true"
+        . "&premium=true";
 } else {
-    // Fallback: conexión directa
-    $ch = curl_init($targetUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $postfields,
-        CURLOPT_HTTPHEADER     => [
-            "Content-Type: application/x-www-form-urlencoded; charset=UTF-8",
-            "Cookie: $cookie",
-            "Origin: https://websalud.minsa.gob.pe",
-            "Referer: https://websalud.minsa.gob.pe/hisminsa/",
-            "X-Requested-With: XMLHttpRequest",
-            "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        ],
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT        => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
-    ]);
+    $requestUrl = $targetUrl;
 }
+
+$ch = curl_init($requestUrl);
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POST           => true,
+    CURLOPT_POSTFIELDS     => $postfields,
+    CURLOPT_HTTPHEADER     => [
+        "Content-Type: application/x-www-form-urlencoded; charset=UTF-8",
+        "Cookie: $cookie",
+        "Origin: https://websalud.minsa.gob.pe",
+        "Referer: https://websalud.minsa.gob.pe/hisminsa/",
+        "X-Requested-With: XMLHttpRequest",
+        "Accept: */*",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    ],
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_MAXREDIRS      => 5,
+    CURLOPT_TIMEOUT        => 60,
+    CURLOPT_CONNECTTIMEOUT => 15,
+]);
 
 $response = curl_exec($ch);
 $error    = curl_error($ch);
+$errno    = curl_errno($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-if ($error) {
-    echo json_encode(["status" => "error", "message" => "cURL: $error"]);
+if ($error || $errno) {
+    echo json_encode(["status" => "error", "message" => "cURL ($errno): $error"]);
     exit;
 }
+
 if ($httpCode !== 200) {
     echo json_encode([
         "status"    => "error",
-        "message"   => "HTTP $httpCode desde " . (!empty($apiKey) ? "ScraperAPI" : "directo"),
+        "message"   => "HTTP $httpCode" . (!empty($apiKey) ? " vía ScraperAPI" : " directo"),
         "http_code" => $httpCode,
-        "snippet"   => mb_substr($response, 0, 300)
+        "snippet"   => mb_substr($response, 0, 500)
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     exit;
 }
