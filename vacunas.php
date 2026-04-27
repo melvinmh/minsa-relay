@@ -26,50 +26,49 @@ $params = http_build_query([
 ]);
 $targetUrl = "https://websalud.minsa.gob.pe/hisminsa/his/his?" . $params;
 
+// ✅ Formato correcto ScraperAPI
 if (!empty($apiKey)) {
-    $ch = curl_init("http://api.scraperapi.com/");
-    $payload = json_encode([
-        "apiKey"  => $apiKey,
-        "url"     => $targetUrl,
-        "method"  => "GET",
-        "headers" => [
-            "Cookie"          => $cookie,
-            "Referer"         => "https://websalud.minsa.gob.pe/hisminsa/",
-            "X-Requested-With"=> "XMLHttpRequest",
-            "User-Agent"      => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        ]
-    ]);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => ["Content-Type: application/json"],
-        CURLOPT_TIMEOUT        => 60,
-        CURLOPT_SSL_VERIFYPEER => false,
-    ]);
+    $requestUrl = "http://api.scraperapi.com/"
+        . "?api_key=" . urlencode($apiKey)
+        . "&url="     . urlencode($targetUrl)
+        . "&keep-headers=true"
+        . "&premium=true";
 } else {
-    $ch = curl_init($targetUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => [
-            "Cookie: $cookie",
-            "Referer: https://websalud.minsa.gob.pe/hisminsa/",
-            "X-Requested-With: XMLHttpRequest",
-            "User-Agent: Mozilla/5.0"
-        ],
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_TIMEOUT        => 30,
-    ]);
+    $requestUrl = $targetUrl;
 }
+
+$ch = curl_init($requestUrl);
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER     => [
+        "Cookie: $cookie",
+        "Referer: https://websalud.minsa.gob.pe/hisminsa/",
+        "X-Requested-With: XMLHttpRequest",
+        "Accept: */*",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+    ],
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_TIMEOUT        => 60,
+    CURLOPT_CONNECTTIMEOUT => 15,
+]);
 
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $error    = curl_error($ch);
+$errno    = curl_errno($ch);
 curl_close($ch);
 
-if ($error) { echo json_encode(['error' => $error]); exit; }
+if ($error || $errno) {
+    echo json_encode(['error' => "cURL ($errno): $error"]);
+    exit;
+}
+
 if ($httpCode !== 200) {
-    echo json_encode(['error' => "HTTP $httpCode", 'snippet' => mb_substr($response, 0, 300)]);
+    echo json_encode([
+        'error'   => "HTTP $httpCode" . (!empty($apiKey) ? " vía ScraperAPI" : " directo"),
+        'snippet' => mb_substr($response, 0, 500)
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
