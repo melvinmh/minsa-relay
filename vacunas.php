@@ -1,22 +1,15 @@
 <?php
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $idpaciente = preg_replace('/[^0-9]/', '', $_GET['idpaciente'] ?? '');
-if (empty($idpaciente)) {
-    echo json_encode(['error' => 'Falta idpaciente']);
-    exit;
-}
+if (empty($idpaciente)) { echo json_encode(['error' => 'Falta idpaciente']); exit; }
 
 $cookie = getenv('MINSA_COOKIE') ?: '';
-$apiKey = getenv('SCRAPER_API_KEY') ?: '';
+$apiKey = getenv('ZENROWS_API_KEY') ?: '';
 
-if (empty($cookie)) {
-    echo json_encode(['error' => 'MINSA_COOKIE no configurada']);
-    exit;
-}
+if (empty($cookie)) { echo json_encode(['error' => 'MINSA_COOKIE no configurada']); exit; }
 
 $params = http_build_query([
     '_dc' => time().'000', 'confighistorialpacid' => 1,
@@ -27,13 +20,13 @@ $params = http_build_query([
 ]);
 $targetUrl = "https://websalud.minsa.gob.pe/hisminsa/his/his?" . $params;
 
-// ✅ ultra_premium=true → proxies residenciales que bypassean Cloudflare
 if (!empty($apiKey)) {
-    $requestUrl = "http://api.scraperapi.com/"
-        . "?api_key="       . urlencode($apiKey)
+    $requestUrl = "https://api.zenrows.com/v1/"
+        . "?apikey="        . urlencode($apiKey)
         . "&url="           . urlencode($targetUrl)
-        . "&keep-headers=true"
-        . "&ultra_premium=true";
+        . "&antibot=true"
+        . "&premium_proxy=true"
+        . "&custom_headers=true";
 } else {
     $requestUrl = $targetUrl;
 }
@@ -46,7 +39,7 @@ curl_setopt_array($ch, [
         "Referer: https://websalud.minsa.gob.pe/hisminsa/",
         "X-Requested-With: XMLHttpRequest",
         "Accept: */*",
-        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     ],
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_FOLLOWLOCATION => true,
@@ -60,17 +53,13 @@ $error    = curl_error($ch);
 $errno    = curl_errno($ch);
 curl_close($ch);
 
-if ($error || $errno) {
-    echo json_encode(['error' => "cURL ($errno): $error"]);
-    exit;
-}
+if ($error || $errno) { echo json_encode(['error' => "cURL ($errno): $error"]); exit; }
 
 if ($httpCode !== 200) {
     echo json_encode([
-        'error'   => "HTTP $httpCode" . (!empty($apiKey) ? " vía ScraperAPI" : " directo"),
+        'error'   => "HTTP $httpCode" . (!empty($apiKey) ? " vía ZenRows" : " directo"),
         'snippet' => mb_substr($response, 0, 500)
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+    ], JSON_UNESCAPED_UNICODE); exit;
 }
 
 $encoding = mb_detect_encoding($response, ['UTF-8','ISO-8859-1','Windows-1252'], true);
